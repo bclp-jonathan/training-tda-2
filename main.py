@@ -27,8 +27,18 @@ if uploaded_file:
     emisores = pd.Series(latest[1:].dropna().values, index=latest[1:].dropna().index.astype(str))
     emisores_sorted = emisores.sort_values(ascending=False)
     st.metric("Emisor con más tarjetas", emisores_sorted.index[0], f"{int(emisores_sorted.iloc[0]):,} tarjetas")
-    fig1 = px.bar(emisores_sorted.head(10), labels={"value": "Tarjetas Vigentes", "index": "Emisor"},
+
+    df_bar1 = emisores_sorted.head(10).reset_index()
+    df_bar1.columns = ["Emisor", "Tarjetas Vigentes"]
+
+    fig1 = px.bar(df_bar1,
+                  x="Emisor",
+                  y="Tarjetas Vigentes",
+                  text="Tarjetas Vigentes",
+                  labels={"Tarjetas Vigentes": "Tarjetas Vigentes", "Emisor": "Emisor"},
                   title=f"Top 10 emisores con más tarjetas ({fecha_actual.date()})")
+    fig1.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+    fig1.update_layout(xaxis_tickangle=-45, uniformtext_minsize=8, uniformtext_mode='hide')
     st.plotly_chart(fig1, use_container_width=True)
 
     # Sección 2: Emisor que más ha crecido en 2 años
