@@ -36,11 +36,20 @@ if uploaded_file:
     fecha_ini = pd.Timestamp("2023-02-01")
     fecha_fin = pd.Timestamp("2025-02-01")
     df_2y = df[df["Fecha"].isin([fecha_ini, fecha_fin])].set_index("Fecha")
-    crecimiento = df_2y.loc[fecha_fin] - df_2y.loc[fecha_ini]
-    crecimiento = crecimiento.dropna().sort_values(ascending=False)
-    st.metric("Mayor crecimiento absoluto", crecimiento.index[0], f"+{int(crecimiento.max()):,} tarjetas")
-    fig2 = px.bar(crecimiento.head(10), labels={"value": "Crecimiento de Tarjetas", "index": "Emisor"},
-                  title="Top 10 emisores con mayor crecimiento (2023-2025)")
+    crecimiento_abs = df_2y.loc[fecha_fin] - df_2y.loc[fecha_ini]
+    crecimiento_pct = (crecimiento_abs / df_2y.loc[fecha_ini]) * 100
+    crecimiento_abs = crecimiento_abs.dropna()
+    crecimiento_pct = crecimiento_pct.dropna()
+    top_crecimiento = crecimiento_pct.sort_values(ascending=False).head(1)
+    emisor_top = top_crecimiento.index[0]
+    tarjetas_ini = int(df_2y.loc[fecha_ini, emisor_top])
+    tarjetas_fin = int(df_2y.loc[fecha_fin, emisor_top])
+    var_pct = top_crecimiento.iloc[0]
+    st.metric("Mayor crecimiento porcentual", emisor_top,
+              f"{var_pct:.2f}% ({tarjetas_ini:,} → {tarjetas_fin:,})")
+    fig2 = px.bar(crecimiento_pct.sort_values(ascending=False).head(10),
+                  labels={"value": "Crecimiento %", "index": "Emisor"},
+                  title="Top 10 emisores con mayor crecimiento porcentual (2023-2025)")
     st.plotly_chart(fig2, use_container_width=True)
 
     # Sección 3: Emisor que más participación ha perdido
@@ -50,7 +59,12 @@ if uploaded_file:
     part_ini = df_2y.loc[fecha_ini] / total_ini
     part_fin = df_2y.loc[fecha_fin] / total_fin
     cambio_part = (part_fin - part_ini).dropna().sort_values()
-    st.metric("Mayor pérdida de participación", cambio_part.index[0], f"{cambio_part.min() * 100:.2f} pp")
+    top_perdida = cambio_part.head(1)
+    emisor_pierde = top_perdida.index[0]
+    tarjetas_ini_p = int(df_2y.loc[fecha_ini, emisor_pierde])
+    tarjetas_fin_p = int(df_2y.loc[fecha_fin, emisor_pierde])
+    st.metric("Mayor pérdida de participación", emisor_pierde,
+              f"{top_perdida.iloc[0] * 100:.2f} pp ({tarjetas_ini_p:,} → {tarjetas_fin_p:,})")
     fig3 = px.bar(cambio_part.head(10) * 100, labels={"value": "Cambio en Participación (%)", "index": "Emisor"},
                   title="Top 10 emisores que más participación han perdido (2023-2025)")
     st.plotly_chart(fig3, use_container_width=True)
