@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Tarjetas de Crédito en Chile", layout="wide")
 st.title("Análisis de Tarjetas de Crédito por Emisor en Chile")
@@ -23,18 +24,19 @@ if uploaded_file:
 
     df = df_raw[df_raw["Fecha"].notna()].copy()
 
-    # Selector de análisis
-    seccion = st.sidebar.radio("Selecciona una sección:", [
-        "1. Emisor con más tarjetas al día de hoy",
-        "2. Emisor que más ha crecido en los últimos 2 años",
-        "3. Emisor que más participación ha perdido en los últimos 2 años",
-        "4. Evolución participación Banco de Chile",
-        "5. Comparación con competidores",
-        "6. Ranking de crecimiento últimos 12 meses",
-        "7. Alertas de caída en tarjetas Banco de Chile"
+    # Navegación horizontal
+    tabs = st.tabs([
+        "1. Más tarjetas hoy",
+        "2. Mayor crecimiento 2 años",
+        "3. Mayor pérdida de participación",
+        "4. Participación Banco de Chile",
+        "5. Comparación competidores",
+        "6. Crecimiento últimos 12 meses",
+        "7. Alertas de caída Banco de Chile",
+        "8. Apertura participación (Waterfall)"
     ])
 
-    if seccion == "1. Emisor con más tarjetas al día de hoy":
+    with tabs[0]:
         st.header("1. Emisor con más tarjetas al día de hoy")
         latest = df.iloc[-1]
         fecha_actual = latest["Fecha"]
@@ -56,7 +58,7 @@ if uploaded_file:
         fig1.update_layout(xaxis_tickangle=-45, uniformtext_minsize=8, uniformtext_mode='hide')
         st.plotly_chart(fig1, use_container_width=True)
 
-    elif seccion == "2. Emisor que más ha crecido en los últimos 2 años":
+    with tabs[1]:
         st.header("2. Emisor que más ha crecido en los últimos 2 años")
         fecha_ini = pd.Timestamp("2023-02-01")
         fecha_fin = pd.Timestamp("2025-02-01")
@@ -81,11 +83,8 @@ if uploaded_file:
         fig2.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig2, use_container_width=True)
 
-    elif seccion == "3. Emisor que más participación ha perdido en los últimos 2 años":
+    with tabs[2]:
         st.header("3. Emisor que más participación ha perdido en los últimos 2 años")
-        fecha_ini = pd.Timestamp("2023-02-01")
-        fecha_fin = pd.Timestamp("2025-02-01")
-        df_2y = df[df["Fecha"].isin([fecha_ini, fecha_fin])].set_index("Fecha")
         total_ini = df_2y.loc[fecha_ini].sum()
         total_fin = df_2y.loc[fecha_fin].sum()
         part_ini = df_2y.loc[fecha_ini] / total_ini
@@ -106,7 +105,7 @@ if uploaded_file:
         fig3.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig3, use_container_width=True)
 
-    elif seccion == "4. Evolución participación Banco de Chile":
+    with tabs[3]:
         st.header("4. Evolución de participación de mercado del Banco de Chile")
         df["Total"] = df.drop(columns=["Fecha"]).sum(axis=1)
         df["Participacion_BChile"] = df["Banco de Chile"] / df["Total"] * 100
@@ -115,7 +114,7 @@ if uploaded_file:
                       color_discrete_sequence=bcg_colors)
         st.plotly_chart(fig4, use_container_width=True)
 
-    elif seccion == "5. Comparación con competidores":
+    with tabs[4]:
         st.header("5. Comparación de tarjetas vigentes con competidores")
         df_comp = df[["Fecha", "Banco de Chile", "Banco Santander", "Banco Falabella", "Banco del Estado de Chile"]].copy()
         df_comp = df_comp.melt(id_vars="Fecha", var_name="Emisor", value_name="Tarjetas")
@@ -124,7 +123,7 @@ if uploaded_file:
                        color_discrete_sequence=bcg_colors)
         st.plotly_chart(fig5, use_container_width=True)
 
-    elif seccion == "6. Ranking de crecimiento últimos 12 meses":
+    with tabs[5]:
         st.header("6. Ranking de crecimiento últimos 12 meses")
         df_last12 = df[df["Fecha"] >= df["Fecha"].max() - pd.DateOffset(months=12)].copy()
         df_growth = df_last12.set_index("Fecha").iloc[-1] - df_last12.set_index("Fecha").iloc[0]
@@ -137,7 +136,7 @@ if uploaded_file:
         fig6.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig6, use_container_width=True)
 
-    elif seccion == "7. Alertas de caída en tarjetas Banco de Chile":
+    with tabs[6]:
         st.header("7. Alertas de caída mensual en Banco de Chile")
         df_bch = df[["Fecha", "Banco de Chile"]].dropna()
         df_bch["Variacion"] = df_bch["Banco de Chile"].diff()
@@ -148,6 +147,29 @@ if uploaded_file:
         fig7.add_scatter(x=df_alerta["Fecha"], y=df_alerta["Banco de Chile"], mode="markers",
                          marker=dict(size=10, color="red"), name="Caída")
         st.plotly_chart(fig7, use_container_width=True)
+
+    with tabs[7]:
+        st.header("8. Apertura del market share por emisor (Waterfall)")
+        ultima_fecha = df["Fecha"].max()
+        total_ult = df[df["Fecha"] == ultima_fecha].drop(columns=["Fecha"]).sum(axis=1).values[0]
+        participaciones = df[df["Fecha"] == ultima_fecha].drop(columns=["Fecha"]).T
+        participaciones.columns = ["Tarjetas"]
+        participaciones = participaciones.sort_values(by="Tarjetas", ascending=False).dropna()
+        participaciones["Participacion"] = participaciones["Tarjetas"] / total_ult * 100
+
+        fig8 = go.Figure(go.Waterfall(
+            name="Participación",
+            orientation="v",
+            measure=["relative"] * len(participaciones) + ["total"],
+            x=participaciones.index.tolist() + ["Total"],
+            y=participaciones["Participacion"].tolist() + [0],
+            connector={"line": {"color": "gray"}}
+        ))
+
+        fig8.update_layout(title="Desglose del market share por emisor (%) - Última fecha",
+                           yaxis_title="Participación (%)",
+                           xaxis_title="Emisor")
+        st.plotly_chart(fig8, use_container_width=True)
 
 else:
     st.info("Por favor sube un archivo Excel para comenzar el análisis.")
