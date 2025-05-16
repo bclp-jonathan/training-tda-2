@@ -27,7 +27,11 @@ if uploaded_file:
     seccion = st.sidebar.radio("Selecciona una sección:", [
         "1. Emisor con más tarjetas al día de hoy",
         "2. Emisor que más ha crecido en los últimos 2 años",
-        "3. Emisor que más participación ha perdido en los últimos 2 años"
+        "3. Emisor que más participación ha perdido en los últimos 2 años",
+        "4. Evolución participación Banco de Chile",
+        "5. Comparación con competidores",
+        "6. Ranking de crecimiento últimos 12 meses",
+        "7. Alertas de caída en tarjetas Banco de Chile"
     ])
 
     if seccion == "1. Emisor con más tarjetas al día de hoy":
@@ -101,6 +105,49 @@ if uploaded_file:
         fig3.update_traces(texttemplate='%{y:.2f}%', textposition='outside')
         fig3.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig3, use_container_width=True)
+
+    elif seccion == "4. Evolución participación Banco de Chile":
+        st.header("4. Evolución de participación de mercado del Banco de Chile")
+        df["Total"] = df.drop(columns=["Fecha"]).sum(axis=1)
+        df["Participacion_BChile"] = df["Banco de Chile"] / df["Total"] * 100
+        fig4 = px.line(df, x="Fecha", y="Participacion_BChile", title="Participación de mercado del Banco de Chile (%)",
+                      labels={"Participacion_BChile": "Participación (%)"},
+                      color_discrete_sequence=bcg_colors)
+        st.plotly_chart(fig4, use_container_width=True)
+
+    elif seccion == "5. Comparación con competidores":
+        st.header("5. Comparación de tarjetas vigentes con competidores")
+        df_comp = df[["Fecha", "Banco de Chile", "Banco Santander", "Banco Falabella", "Banco del Estado de Chile"]].copy()
+        df_comp = df_comp.melt(id_vars="Fecha", var_name="Emisor", value_name="Tarjetas")
+        fig5 = px.line(df_comp, x="Fecha", y="Tarjetas", color="Emisor",
+                       title="Comparación temporal de tarjetas entre principales bancos",
+                       color_discrete_sequence=bcg_colors)
+        st.plotly_chart(fig5, use_container_width=True)
+
+    elif seccion == "6. Ranking de crecimiento últimos 12 meses":
+        st.header("6. Ranking de crecimiento últimos 12 meses")
+        df_last12 = df[df["Fecha"] >= df["Fecha"].max() - pd.DateOffset(months=12)].copy()
+        df_growth = df_last12.set_index("Fecha").iloc[-1] - df_last12.set_index("Fecha").iloc[0]
+        df_growth = df_growth.dropna().sort_values(ascending=False).reset_index()
+        df_growth.columns = ["Emisor", "Crecimiento"]
+        fig6 = px.bar(df_growth.head(10), x="Emisor", y="Crecimiento", text="Crecimiento",
+                      title="Top 10 emisores con mayor crecimiento en últimos 12 meses",
+                      color_discrete_sequence=bcg_colors)
+        fig6.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+        fig6.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig6, use_container_width=True)
+
+    elif seccion == "7. Alertas de caída en tarjetas Banco de Chile":
+        st.header("7. Alertas de caída mensual en Banco de Chile")
+        df_bch = df[["Fecha", "Banco de Chile"]].dropna()
+        df_bch["Variacion"] = df_bch["Banco de Chile"].diff()
+        df_alerta = df_bch[df_bch["Variacion"] < 0]
+        fig7 = px.line(df_bch, x="Fecha", y="Banco de Chile",
+                       title="Evolución de tarjetas del Banco de Chile con alertas de caída",
+                       color_discrete_sequence=bcg_colors)
+        fig7.add_scatter(x=df_alerta["Fecha"], y=df_alerta["Banco de Chile"], mode="markers",
+                         marker=dict(size=10, color="red"), name="Caída")
+        st.plotly_chart(fig7, use_container_width=True)
 
 else:
     st.info("Por favor sube un archivo Excel para comenzar el análisis.")
