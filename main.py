@@ -5,6 +5,9 @@ import plotly.express as px
 st.set_page_config(page_title="Tarjetas de Crédito en Chile", layout="wide")
 st.title("Análisis de Tarjetas de Crédito por Emisor en Chile")
 
+# Paleta de colores BCG
+bcg_colors = ["#00654F", "#00B398", "#A2AAAD", "#005F73", "#E0E1DD"]
+
 # Cargar archivo
 uploaded_file = st.file_uploader("Sube el archivo Excel CMF de tarjetas de crédito", type=["xlsx"])
 
@@ -36,7 +39,8 @@ if uploaded_file:
                   y="Tarjetas Vigentes",
                   text="Tarjetas Vigentes",
                   labels={"Tarjetas Vigentes": "Tarjetas Vigentes", "Emisor": "Emisor"},
-                  title=f"Top 10 emisores con más tarjetas ({fecha_actual.date()})")
+                  title=f"Top 10 emisores con más tarjetas ({fecha_actual.date()})",
+                  color_discrete_sequence=bcg_colors)
     fig1.update_traces(texttemplate='%{text:.2s}', textposition='outside')
     fig1.update_layout(xaxis_tickangle=-45, uniformtext_minsize=8, uniformtext_mode='hide')
     st.plotly_chart(fig1, use_container_width=True)
@@ -57,9 +61,13 @@ if uploaded_file:
     var_pct = top_crecimiento.iloc[0]
     st.metric("Mayor crecimiento porcentual", emisor_top,
               f"{var_pct:.2f}% ({tarjetas_ini:,} → {tarjetas_fin:,})")
-    fig2 = px.bar(crecimiento_pct.sort_values(ascending=False).head(10),
-                  labels={"value": "Crecimiento %", "index": "Emisor"},
-                  title="Top 10 emisores con mayor crecimiento porcentual (2023-2025)")
+    fig2 = px.bar(crecimiento_pct.sort_values(ascending=False).head(10).reset_index(),
+                  x="index", y=0, text=0,
+                  labels={"index": "Emisor", 0: "Crecimiento %"},
+                  title="Top 10 emisores con mayor crecimiento porcentual (2023-2025)",
+                  color_discrete_sequence=bcg_colors)
+    fig2.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+    fig2.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig2, use_container_width=True)
 
     # Sección 3: Emisor que más participación ha perdido
@@ -75,8 +83,13 @@ if uploaded_file:
     tarjetas_fin_p = int(df_2y.loc[fecha_fin, emisor_pierde])
     st.metric("Mayor pérdida de participación", emisor_pierde,
               f"{top_perdida.iloc[0] * 100:.2f} pp ({tarjetas_ini_p:,} → {tarjetas_fin_p:,})")
-    fig3 = px.bar(cambio_part.head(10) * 100, labels={"value": "Cambio en Participación (%)", "index": "Emisor"},
-                  title="Top 10 emisores que más participación han perdido (2023-2025)")
+    fig3 = px.bar(cambio_part.head(10).reset_index(),
+                  x="index", y=0,
+                  labels={"index": "Emisor", 0: "Cambio en Participación (%)"},
+                  title="Top 10 emisores que más participación han perdido (2023-2025)",
+                  color_discrete_sequence=bcg_colors)
+    fig3.update_traces(texttemplate='%{y:.2f}%', textposition='outside')
+    fig3.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig3, use_container_width=True)
 
 else:
